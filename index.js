@@ -1,5 +1,12 @@
 const SERVER = 'https://remoteclockservernode.azurewebsites.net/';
 
+const options = {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+};
+
 let totalSeconds = 0;
 
 let timerObject = {
