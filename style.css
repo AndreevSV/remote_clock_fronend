@@ -1,0 +1,44 @@
+.white,
+.black {
+    height: 2rem;
+    align-items: center;
+}
+
+.white,
+.white_last {
+    background-color: antiquewhite;
+    visibility: visible;
+    color: black;
+    display: flex;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.black {
+    background-color: black;
+    visibility: visible;
+    color: white;
+    display: flex;
+    justify-content: center;
+}
+
+.white_last {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.start_stop_button,
+.reset_button {
+    margin-top: 1%;
+    cursor: pointer;
+}
+
+.start_stop_button {
+    background-color: greenyellow;
+    margin-right: 5%;
+}
+
+.reset_button {
+    background-color: rgb(255, 255, 0);
+}

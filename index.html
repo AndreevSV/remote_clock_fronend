@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Remote clock</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div>
+            <div class="white"></div>
+            <div class="black"></div>
+            <div class="white">DATE</div>
+            <div id="date" class="black"></div>
+            <div class="white">TIME</div>
+            <div id="time" class="black"></div>
+            <div class="white">TIMER</div>
+            <div id="timer" class="black"></div>
+            <div class="white_last">
+                <button class="start_stop_button" onclick="onClickStartStopTimer()">Start</button>
+                <button class="reset_button" onclick="onClickResetTimer()">Reset</button>
+            </div>
+            <script src="index.js"></script>
+        </div>
+    </body>
+</html>
