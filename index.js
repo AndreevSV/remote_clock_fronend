@@ -23,11 +23,14 @@ window.onload = function () {
     displayTimer();
 };
 
-function displayDate() {
+async function displayDate() {
     // TODO: add cron to change date at 00:00:00
-    const today = new Date();
-    const date = today.toLocaleDateString(undefined, options);
-    document.getElementById('date').innerHTML = date;
+    try {
+        const date = await fetch(SERVER);
+        document.getElementById('date').innerHTML = date;
+    } catch (error) {
+        console.error('Error occurred', error);
+    }
 }
 
 function displayTime() {
