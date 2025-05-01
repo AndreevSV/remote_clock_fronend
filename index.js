@@ -27,6 +27,7 @@ async function displayDate() {
     // TODO: add cron to change date at 00:00:00
     try {
         const date = await fetch(SERVER);
+        console.log(JSON.stringify(date))
         document.getElementById('date').innerHTML = date;
     } catch (error) {
         console.error('Error occurred', error);
