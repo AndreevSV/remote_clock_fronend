@@ -1,5 +1,5 @@
-const SERVER = 'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
-// const SERVER = 'http://localhost:5252';
+// const SERVER = 'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
+const SERVER = 'http://localhost:5252';
 
 let totalSeconds = 0;
 let intervalId;
@@ -12,111 +12,41 @@ const options = {
     day: 'numeric',
 };
 
-window.onload = function () {
-    getDateTimeObject();
-    getTimerObject();
+window.onload = async function () {
+    // const dateTimeDto = await getDateTimeObject();
+    // displayDate(dateTimeDto.date);
+    // displayTime(dateTimeDto);
 
-    setInterval(() => {
-        const now = new Date();
-        const timeString = `${checkTime(now.getHours())}:${checkTime(
-            now.getMinutes()
-        )}:${checkTime(now.getSeconds())}`;
-        displayTime(timeString);
-    }, 1000);
+    // checkAnotherDayDate();
 
-    checkAnotherDayDate();
+    const timerDto = await getTimerDto();
+    displayTimer(timerDto.totalSeconds);
+    if (timerDto.isTimerStarted) {
+        totalSeconds = timerDto.totalSeconds;  
+        tickTackTimer(timerDto.totalSeconds);
+        isTimerStarted = timerDto.isTimerStarted;
+    }
+    displayTimerButtons(timerDto.isTimerStarted);
 };
 
-async function getDateTimeObject() {
-    try {
-        const response = await fetch(`${SERVER}/DateTime/datetime`);
-        if (response.ok) {
-            const dateTimeObject = await response.json();
-            displayDate(dateTimeObject.date);
-            displayTime(
-                `${dateTimeObject.Hours}:${dateTimeObject.Minutes}:${dateTimeObject.Seconds}`
-            );
-        } else {
-            toLocalDateTime();
-        }
-    } catch (error) {
-        console.error('Error fetching date and time:', error);
-        toLocalDateTime();
-    }
-}
-
-async function getTimerObject() {
+async function getTimerDto() {
     try {
         const response = await fetch(`${SERVER}/Timer/timer`);
-        if (response.ok) {
-            const timerObject = await response.json();
-            totalSeconds = Math.floor(timerObject.totalSeconds);
-            displayTimerFromServer(timerObject);
-        } else {
-            console.error('Error fetching timer');
-        }
+        const timerDto = await response.json();
+        return timerDto;
     } catch (error) {
-        console.error(error);
+        console.error('Error fetching /Timer/timer:', error.message);
     }
 }
 
-function checkAnotherDayDate() {
-    const now = new Date();
-    const next = new Date();
+function displayTimer(totalSeconds) {
+    const days = Math.floor(totalSeconds / (60 * 60 * 24));
+    const hours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60));
+    const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
 
-    next.setHours(now.getHours() + 1);
-    next.setMinutes(0);
-    next.setSeconds(1);
-    next.setMilliseconds(0);
-
-    const timeout = next.getTime() - now.getTime();
-
-    setTimeout(() => {
-        getDateTimeObject();
-        setInterval(getDateTimeObject, 60 * 60 * 1000);
-    }, timeout);
-}
-
-function toLocalDateTime() {
-    const today = new Date();
-    displayDate(today.toLocaleDateString(undefined, options));
-    displayTime(convertTodayToTime(today));
-}
-
-function convertTodayToTime(today) {
-    let hours = today.getHours();
-    let minutes = today.getMinutes();
-    let seconds = today.getSeconds();
-
-    minutes = checkTime(minutes);
-    seconds = checkTime(seconds);
-
-    return `${hours}:${minutes}:${seconds}`;
-}
-
-function displayTimerFromServer(timerDto) {
-    let days = timerDto.days;
-    let hours = checkTime(timerDto.hours);
-    let minutes = checkTime(timerDto.minutes);
-    let seconds = checkTime(timerDto.seconds);
-
-    const timerString = `${
-        days === 0 ? '' : days + ' day(-s) '
-    } ${hours}:${minutes}:${seconds}`;
-    console.log(timerString);
+    const timerString = `${days === 0 ? '' : days + ' day(-s) '} ${checkTime(hours)}:${checkTime(minutes)}:${checkTime(seconds)}`;
     document.getElementById('timer').innerHTML = timerString;
-}
-
-function displayDate(dateString) {
-    try {
-        document.getElementById('date').innerHTML = dateString;
-    } catch (error) {
-        console.error('Error occurred during displaying date', error);
-    }
-}
-
-function displayTime(timeString) {
-    document.getElementById('time').innerHTML = timeString;
 }
 
 function checkTime(i) {
@@ -126,66 +56,161 @@ function checkTime(i) {
     return i;
 }
 
-function displayTimer() {
-    let { hours, minutes, seconds } = parseTimer();
-
-    hours = checkTime(hours);
-    minutes = checkTime(minutes);
-    seconds = checkTime(seconds);
-
-    let timer = `${hours}:${minutes}:${seconds}`;
-    document.getElementById('timer').innerHTML = timer;
+function displayTimerButtons(isTimerStarted) {
+    const result = isTimerStarted ? 'Stop' : 'Start';
+    document.querySelector('.start_stop_button').innerHTML = result;
 }
 
 function onClickStartStopTimer() {
     if (isTimerStarted === false) {
         startTimer();
-        document.querySelector('.start_stop_button').innerHTML = 'Stop';
     } else {
-        stopTimer();
-        isTimerStarted = false;
-        document.querySelector('.start_stop_button').innerHTML = 'Start';
+        stopTimer();        
     }
 }
 
 async function startTimer() {
-    if (isTimerStarted) {
-        return;
-    }
-
+    let response;
+    let timerDto;
     try {
-        await fetch(`${SERVER}/Timer/start`, { method: 'POST' });
+        response = await fetch(`${SERVER}/Timer/start`, { method: 'POST' });
+        timerDto = await response.json();
     } catch (error) {
-        console.warn('Server not available, timer starts locally');
+        console.error('Error fetching /Timer/start:', error.message);
     }
 
-    isTimerStarted = true;
-    document.querySelector('.start_stop_button').innerHTML = 'Stop';
+    totalSeconds = timerDto.totalSeconds;
+    isTimerStarted = timerDto.isTimerStarted;
+    displayTimerButtons(isTimerStarted);
+    tickTackTimer();
+}
 
+function tickTackTimer() {
+    // Should send to server - intervalId?
     intervalId = setInterval(() => {
         totalSeconds++;
-        displayTimer();
+        displayTimer(totalSeconds);
     }, 1000);
+    console.log('🚀 ~ intervalId=setInterval ~ intervalId:', intervalId)
 }
 
 async function stopTimer() {
+    let response;
+    let timerDto;
+    try {
+        response = await fetch(`${SERVER}/Timer/stop`, { method: 'POST' });
+        timerDto = await response.json();
+    } catch (error) {
+        console.error('Error fetching /Timer/stop:', error.message);
+    }
+
+    totalSeconds = timerDto.totalSeconds;
+    isTimerStarted = timerDto.isTimerStarted;
+    displayTimer(totalSeconds);
     clearInterval(intervalId);
-    await fetch(`${SERVER}/Timer/stop`, { method: 'POST' });
+    displayTimerButtons(isTimerStarted);
 }
 
 async function onClickResetTimer() {
-    if (totalSeconds === 0) return; 
-    await fetch(`${SERVER}/Timer/reset`, { method: 'POST' });
-    totalSeconds = 0;
-    displayTimer();
+    if (totalSeconds === 0) return;
+
+    let response;
+    let timerDto;
+    try {
+        response = await fetch(`${SERVER}/Timer/reset`, { method: 'POST' });
+        timerDto = await response.json();
+    } catch (error) {
+        console.error('Error fetching /Timer/reset:', error.message);
+    }
+
+    totalSeconds = timerDto.totalSeconds;
+    isTimerStarted = timerDto.isTimerStarted;
+    displayTimer(totalSeconds);
     clearInterval(intervalId);
-    isTimerStarted = false;
-    document.querySelector('.start_stop_button').innerHTML = 'Start';
+    displayTimerButtons(isTimerStarted);
 }
 
-function parseTimer() {
-    const hours = Math.floor(totalSeconds / (60 * 60));
-    const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
-    const seconds = totalSeconds % 60;
-    return { hours, minutes, seconds };
-}
+// async function getDateTimeObject() {
+//     try {
+//         const response = await fetch(`${SERVER}/DateTime/datetime`);
+//         const dateTimeObject = await response.json();
+//         return dateTimeObject;
+//     } catch (error) {
+//         console.error('Error fetching date and time:', error);
+//         // toLocalDateTime();
+//     }
+// }
+
+// function displayDate(dateString) {
+//     try {
+//         document.getElementById('date').innerHTML = dateString;
+//     } catch (error) {
+//         console.error('Error occurred during displaying date', error);
+//     }
+// }
+
+// function displayTime(dateTimeDto) {
+//     let timeString = `${checkTime(dateTimeDto.hours)}:${checkTime(
+//         dateTimeDto.minutes
+//     )}:${checkTime(dateTimeDto.seconds)}`;
+//     document.getElementById('time').innerHTML = timeString;
+//     // setInterval(() => {
+//     //     const now = new Date();
+//     //     const timeString = `${checkTime(now.getHours())}:${checkTime(now.getMinutes())}:${checkTime(now.getSeconds())}`;
+//     //     displayTime(timeString);
+//     // }, 1000);
+// }
+
+// function checkAnotherDayDate() {
+//     const now = new Date();
+//     const next = new Date();
+
+//     next.setHours(now.getHours() + 1);
+//     next.setMinutes(0);
+//     next.setSeconds(1);
+//     next.setMilliseconds(0);
+
+//     const timeout = next.getTime() - now.getTime();
+
+//     setTimeout(() => {
+//         getDateTimeObject();
+//         setInterval(getDateTimeObject, 60 * 60 * 1000);
+//     }, timeout);
+// }
+
+// function toLocalDateTime() {
+//     const today = new Date();
+//     displayDate(today.toLocaleDateString(undefined, options));
+//     displayTime(convertTodayToTime(today));
+// }
+
+// function convertTodayToTime(today) {
+//     let hours = today.getHours();
+//     let minutes = today.getMinutes();
+//     let seconds = today.getSeconds();
+
+//     minutes = checkTime(minutes);
+//     seconds = checkTime(seconds);
+
+//     return `${hours}:${minutes}:${seconds}`;
+// }
+
+
+// function displayTimer() {
+//     let { hours, minutes, seconds } = parseTimer();
+
+//     hours = checkTime(hours);
+//     minutes = checkTime(minutes);
+//     seconds = checkTime(seconds);
+
+//     let timer = `${hours}:${minutes}:${seconds}`;
+//     document.getElementById('timer').innerHTML = timer;
+// }
+
+// function parseTimer(totalSeconds) {
+//     const days = Math.floor(totalSeconds / (60 * 60 * 24));
+//     const hours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60));
+//     const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
+//     const seconds = totalSeconds % 60;
+//     return { days, hours, minutes, seconds };
+// }
