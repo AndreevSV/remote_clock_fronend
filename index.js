@@ -1,11 +1,13 @@
-const SERVER = 'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
+const SERVER =
+'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
 // const SERVER = 'http://localhost:5252';
-let isOffline = false;
 
 let totalSeconds = 0;
 let intervalId;
 let isTimerStarted = false;
 let dateTimeDto;
+
+let isOfflineTimer = false;
 
 const options = {
     weekday: 'long',
@@ -15,6 +17,11 @@ const options = {
 };
 
 window.onload = async function () {
+    if (!localStorage.getItem('userId')) {
+        const userId = crypto.randomUUID();
+        localStorage.setItem('userId', userId);
+    }
+
     // -------------- DATE TIME LOGIC ------------------
     await startDateTimeLogic();
 
@@ -89,11 +96,11 @@ function tickTackDateTime(dateTimeDto) {
     serverTime.setMilliseconds(0);
 
     const timeDifference = clientTime.getTime() - serverTime.getTime();
-        
+
     setInterval(() => {
         const now = new Date();
         const actualTime = new Date(now.getTime() - timeDifference);
-        
+
         displayTime({
             hours: actualTime.getHours(),
             minutes: actualTime.getMinutes(),
@@ -115,14 +122,34 @@ function getLocalDateTimeDto() {
 
 // -------------- TIMER LOGIC ----------------------
 async function startTimerLogic() {
-    const { userId, timerDto } = await getTimerDto();
+    const result = await getTimerDto();
+
+    if (!result || !result.userId || !result.timerDto) {
+        const userId = localStorage.getItem('userId');
+        const timerDto = {
+            totalSeconds: Number(localStorage.getItem('totalSeconds') || 0),
+            isTimerStarted: localStorage.getItem('isTimerStarted') === 'true',
+        };
+
+        displayTimer(timerDto.totalSeconds);
+        if (timerDto.isTimerStarted) {
+            totalSeconds = timerDto.totalSeconds;
+            tickTackTimer();
+            isTimerStarted = true;
+        }
+
+        displayTimerButtons(timerDto.isTimerStarted);
+        return;
+    }
+
+    const { userId, timerDto } = result;
 
     setTimerToLocalStorage(userId, timerDto);
 
     displayTimer(timerDto.totalSeconds);
     if (timerDto.isTimerStarted) {
         totalSeconds = timerDto.totalSeconds;
-        tickTackTimer(timerDto.totalSeconds);
+        tickTackTimer();
         isTimerStarted = timerDto.isTimerStarted;
     }
 
@@ -152,10 +179,13 @@ async function getTimerDto() {
             responseDto = await response.json();
             return responseDto;
         } else {
-            displayTimerError();
+            throw new Error('Response is not OK');
         }
     } catch (error) {
         console.error('Error fetching /Timer/timer:', error.message);
+        isOfflineTimer = true;
+        displayTimerMode();
+        return null;
     }
 }
 
@@ -171,11 +201,16 @@ function displayTimer(totalSeconds) {
     document.getElementById('timer').innerHTML = timerString;
 }
 
-function displayTimerError() {}
-
 function displayTimerButtons(isTimerStarted) {
     const result = isTimerStarted ? 'Stop' : 'Start';
     document.querySelector('.start_stop_button').innerHTML = result;
+}
+
+function displayTimerMode() {
+    const result = isOfflineTimer ? 'CLIENT MODE TIMER' : 'SERVER MODE TIMER' ;
+    console.log('🚀 ~ displayTimerError ~ result:', result)
+    
+    document.getElementById('timer_status').innerHTML = result;
 }
 
 function onClickStartStopTimer() {
@@ -198,21 +233,38 @@ async function startTimer() {
         );
         if (response.ok) {
             responseDto = await response.json();
+        } else {
+            throw new Error('Response from server is not OK');
         }
     } catch (error) {
         console.error('Error fetching /Timer/start:', error.message);
+        isOfflineTimer = true;
+        displayTimerMode();
+        responseDto = {
+            totalSeconds: Number(localStorage.getItem('totalSeconds') || 0),
+            isTimerStarted: true,
+        };
     }
 
     totalSeconds = responseDto.totalSeconds;
     isTimerStarted = responseDto.isTimerStarted;
+
+    localStorage.setItem('totalSeconds', responseDto.totalSeconds);
+    localStorage.setItem('isTimerStarted', responseDto.isTimerStarted);
+
     tickTackTimer();
     displayTimerButtons(isTimerStarted);
+
+    if (isOfflineTimer) {
+        tryToSyncTimer();
+    }
 }
 
 function tickTackTimer() {
     intervalId = setInterval(() => {
         totalSeconds++;
         displayTimer(totalSeconds);
+        localStorage.setItem('totalSeconds', totalSeconds);
     }, 1000);
 }
 
@@ -228,16 +280,32 @@ async function stopTimer() {
         );
         if (response.ok) {
             responseDto = await response.json();
+        } else {
+            throw new Error('Response from server is not OK');
         }
     } catch (error) {
         console.error('Error fetching /Timer/stop:', error.message);
+        isOfflineTimer = true;
+        displayTimerMode();
+        responseDto = {
+            totalSeconds,
+            isTimerStarted: false,
+        };
     }
 
     totalSeconds = responseDto.totalSeconds;
     isTimerStarted = responseDto.isTimerStarted;
+
+    localStorage.setItem('totalSeconds', totalSeconds);
+    localStorage.setItem('isTimerStarted', isTimerStarted);
+
     displayTimer(totalSeconds);
     clearInterval(intervalId);
     displayTimerButtons(isTimerStarted);
+
+    if (isOfflineTimer) {
+        tryToSyncTimer();
+    }
 }
 
 async function onClickResetTimer() {
@@ -254,16 +322,58 @@ async function onClickResetTimer() {
         );
         if (response.ok) {
             responseDto = await response.json();
+        } else {
+            throw new Error('Response from server is not OK');
         }
     } catch (error) {
         console.error('Error fetching /Timer/reset:', error.message);
+        isOfflineTimer = true;
+        displayTimerMode();
+        responseDto = {
+            totalSeconds: 0,
+            isTimerStarted: false,
+        };
     }
 
     totalSeconds = responseDto.totalSeconds;
     isTimerStarted = responseDto.isTimerStarted;
+
+    localStorage.setItem('totalSeconds', totalSeconds);
+    localStorage.setItem('isTimerStarted', isTimerStarted);
+
     displayTimer(totalSeconds);
     clearInterval(intervalId);
     displayTimerButtons(isTimerStarted);
+
+    if (isOfflineTimer) {
+        tryToSyncTimer();
+    }
+}
+
+async function tryToSyncTimer() {
+    const userId = localStorage.getItem('userId');
+
+    const syncInterval = setInterval(async () => {
+        if (!isOfflineTimer) {
+            clearInterval(syncInterval);
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `${SERVER}/Timer/sync?userId=${userId}&totalSeconds=${totalSeconds}`,
+                { method: 'POST' }
+            );
+
+            if (response.ok) {
+                console.log('Timer was synchronized with server');
+                isOfflineTimer = false;
+                clearInterval(syncInterval);
+            }
+        } catch (error) {
+            console.error('Server is offline');
+        }
+    }, 5000);
 }
 
 // ----------------- PUBLIC RESOURCE
