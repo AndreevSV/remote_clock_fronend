@@ -1,10 +1,10 @@
-const SERVER = 'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
-// const SERVER = 'http://localhost:5252';
+// const SERVER = 'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
+const SERVER = 'http://localhost:5252';
 
 let totalSeconds = 0;
 let intervalId;
 let isTimerStarted = false;
-let dateTimeDto; 
+let dateTimeDto;
 
 const options = {
     weekday: 'long',
@@ -15,40 +15,36 @@ const options = {
 
 window.onload = async function () {
     // -------------- DATE TIME LOGIC ------------------
-    const dateTimeDto = await getDateTimeObject();
-    displayDate(dateTimeDto.date);
-    displayTime(dateTimeDto);
-    tickTackDateTime(dateTimeDto);
-    checkAnotherDayDate();
+    await startDateTimeLogic();
 
     // -------------- TIMER LOGIC ----------------------
-    const { userId, timerDto } = await getTimerDto();
-    console.log('🚀 ~ responseDto:', timerDto);
-
-    localStorage.setItem('userId', userId);
-    displayTimer(timerDto.totalSeconds);
-    if (timerDto.isTimerStarted) {
-        totalSeconds = timerDto.totalSeconds;
-        tickTackTimer(timerDto.totalSeconds);
-        isTimerStarted = timerDto.isTimerStarted;
-    }
-    displayTimerButtons(timerDto.isTimerStarted);
+    await startTimerLogic();
 };
 
 // -------------- DATE TIME LOGIC ------------------
-async function getDateTimeObject() {
-    let response;
-    let dateTimeDto;
+async function startDateTimeLogic() {
     try {
-        response = await fetch(`${SERVER}/DateTime/datetime`);
-        if (response.ok) {
-            dateTimeDto = await response.json();
-        }
-        return dateTimeDto;
-    } catch (error) {
-        console.error('Error fetching date and time:', error);
-        // toLocalDateTime();
+        dateTimeDto = await getServerDateTimeDto();
+    } catch {
+        dateTimeDto = getLocalDateTimeDto();
     }
+
+    try {
+        displayDate(dateTimeDto.date);
+        displayTime(dateTimeDto);
+        tickTackDateTime(dateTimeDto);
+        checkAnotherDayDate();
+    } catch (error) {
+        console.error('Error occurred during display date and time', error);
+    }
+}
+
+async function getServerDateTimeDto() {
+    const response = await fetch(`${SERVER}/DateTime/datetime`);
+    if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+    }
+    return await response.json();
 }
 
 function displayDate(dateString) {
@@ -78,51 +74,68 @@ function checkAnotherDayDate() {
     const timeout = next.getTime() - now.getTime();
 
     setTimeout(() => {
-        getDateTimeObject();
-        setInterval(getDateTimeObject, 60 * 60 * 1000);
+        getServerDateTimeDto();
+        setInterval(getServerDateTimeDto, 60 * 60 * 1000);
     }, timeout);
 }
 
 function tickTackDateTime(dateTimeDto) {
+    const start = new Date();
+    start.setHours(dateTimeDto.hours);
+    start.setMinutes(dateTimeDto.minutes);
+    start.setSeconds(dateTimeDto.seconds);
+    start.setMilliseconds(dateTimeDto.seconds);
+    
     setInterval(() => {
-        dateTimeDto.seconds++;
+        const now = new Date();
+        const elapsed = Math.floor((now - start) / 1000);
+
+        const date = new Date(start.getTime() + elapsed * 1000);
         
-        if (dateTimeDto.seconds >= 60) {
-            dateTimeDto.seconds = 0;
-            dateTimeDto.minutes++;
-        } 
-
-        if (dateTimeDto.minutes >= 60) {
-            dateTimeDto.minutes = 0;
-            dateTimeDto.hours++;
-        }
-
-        if (dateTimeDto.hours >= 24) {
-            dateTimeDto.hours = 0;
-            dateTimeDto.hours++;
-        }
-        displayTime(dateTimeDto);
+        displayTime({
+            hours: date.getHours(),
+            minutes: date.getMinutes(),
+            seconds: date.getSeconds(),
+            setMilliseconds: date.getMilliseconds(),
+        });
     }, 1000);
 }
 
-function toLocalDateTime() {
-    const today = new Date();
-    displayDate(today.toLocaleDateString(undefined, options));
-    displayTime(convertTodayToTime(today));
-}
+function getLocalDateTimeDto() {
+    const localDateTime = new Date();
 
-function convertTodayToTime(today) {
-    let hours = today.getHours();
-    let minutes = today.getMinutes();
-    let seconds = today.getSeconds();
-
-    minutes = checkTime(minutes);
-    seconds = checkTime(seconds);
-
-    return `${hours}:${minutes}:${seconds}`;
+    return {
+        date: localDateTime.toLocaleDateString(undefined, options),
+        hours: localDateTime.getHours(),
+        minutes: localDateTime.getMinutes(),
+        seconds: localDateTime.getSeconds(),
+    };
 }
 
 // -------------- TIMER LOGIC ----------------------
+async function startTimerLogic() {
+    const { userId, timerDto } = await getTimerDto();
+
+    setTimerToLocalStorage(userId, timerDto);
+
+    displayTimer(timerDto.totalSeconds);
+    if (timerDto.isTimerStarted) {
+        totalSeconds = timerDto.totalSeconds;
+        tickTackTimer(timerDto.totalSeconds);
+        isTimerStarted = timerDto.isTimerStarted;
+    }
+
+    displayTimerButtons(timerDto.isTimerStarted);
+}
+
+function setTimerToLocalStorage(userId, timerDto) {
+    localStorage.setItem('userId', userId);
+    localStorage.setItem('totalSeconds', timerDto.totalSeconds);
+    localStorage.setItem('startDateTime', timerDto.startDateTime);
+    localStorage.setItem('stopDateTime', timerDto.stopDateTime);
+    localStorage.setItem('isTimerStarted', timerDto.isTimerStarted);
+}
+
 async function getTimerDto() {
     let response;
     let responseDto;
@@ -131,13 +144,14 @@ async function getTimerDto() {
             ? ''
             : `?userId=${localStorage.getItem('userId')}`;
 
-    console.log('🚀 ~ getTimerDto ~ partOfUrl:', partOfUrl);
     try {
         response = await fetch(`${SERVER}/Timer/timer${partOfUrl}`);
 
         if (response.ok) {
             responseDto = await response.json();
             return responseDto;
+        } else {
+            displayTimerError();
         }
     } catch (error) {
         console.error('Error fetching /Timer/timer:', error.message);
@@ -155,6 +169,8 @@ function displayTimer(totalSeconds) {
     )}:${checkTime(minutes)}:${checkTime(seconds)}`;
     document.getElementById('timer').innerHTML = timerString;
 }
+
+function displayTimerError() {}
 
 function displayTimerButtons(isTimerStarted) {
     const result = isTimerStarted ? 'Stop' : 'Start';
@@ -188,8 +204,8 @@ async function startTimer() {
 
     totalSeconds = responseDto.totalSeconds;
     isTimerStarted = responseDto.isTimerStarted;
-    displayTimerButtons(isTimerStarted);
     tickTackTimer();
+    displayTimerButtons(isTimerStarted);
 }
 
 function tickTackTimer() {
@@ -217,8 +233,6 @@ async function stopTimer() {
     }
 
     totalSeconds = responseDto.totalSeconds;
-    console.log('🚀 ~ stopTimer ~ totalSeconds:', totalSeconds);
-
     isTimerStarted = responseDto.isTimerStarted;
     displayTimer(totalSeconds);
     clearInterval(intervalId);
