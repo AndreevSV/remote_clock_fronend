@@ -1,5 +1,6 @@
-// const SERVER = 'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
-const SERVER = 'http://localhost:5252';
+const SERVER = 'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
+// const SERVER = 'http://localhost:5252';
+let isOffline = false;
 
 let totalSeconds = 0;
 let intervalId;
@@ -69,7 +70,6 @@ function checkAnotherDayDate() {
     next.setHours(now.getHours() + 1);
     next.setMinutes(0);
     next.setSeconds(1);
-    next.setMilliseconds(0);
 
     const timeout = next.getTime() - now.getTime();
 
@@ -80,23 +80,24 @@ function checkAnotherDayDate() {
 }
 
 function tickTackDateTime(dateTimeDto) {
-    const start = new Date();
-    start.setHours(dateTimeDto.hours);
-    start.setMinutes(dateTimeDto.minutes);
-    start.setSeconds(dateTimeDto.seconds);
-    start.setMilliseconds(dateTimeDto.seconds);
-    
+    const clientTime = new Date();
+
+    const serverTime = new Date();
+    serverTime.setHours(dateTimeDto.hours);
+    serverTime.setMinutes(dateTimeDto.minutes);
+    serverTime.setSeconds(dateTimeDto.seconds);
+    serverTime.setMilliseconds(0);
+
+    const timeDifference = clientTime.getTime() - serverTime.getTime();
+        
     setInterval(() => {
         const now = new Date();
-        const elapsed = Math.floor((now - start) / 1000);
-
-        const date = new Date(start.getTime() + elapsed * 1000);
+        const actualTime = new Date(now.getTime() - timeDifference);
         
         displayTime({
-            hours: date.getHours(),
-            minutes: date.getMinutes(),
-            seconds: date.getSeconds(),
-            setMilliseconds: date.getMilliseconds(),
+            hours: actualTime.getHours(),
+            minutes: actualTime.getMinutes(),
+            seconds: actualTime.getSeconds(),
         });
     }, 1000);
 }
