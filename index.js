@@ -1,6 +1,6 @@
-// const SERVER =
-// 'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
-const SERVER = 'http://localhost:5252';
+const SERVER =
+'https://remoteclockservercsharp20250502005837-a3gjeuc9engqf9ac.canadacentral-01.azurewebsites.net/';
+// const SERVER = 'http://localhost:5252';
 
 let dateTimeDto;
 
